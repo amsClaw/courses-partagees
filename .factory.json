@@ -1,0 +1,13 @@
+{
+  "produit": "courses-partagees",
+  "tests_requis": true,
+  "typecheck_requis": false,
+  "start": {
+    "commande": "npm start",
+    "sante": "http://localhost:8080/health",
+    "delai_s": 90
+  },
+  "design": { "bloquant": false, "cibles": ["index.html", "public"] },
+  "ameliorations": true,
+  "budget_mensuel_usd": 20
+}
