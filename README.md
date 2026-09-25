@@ -15,3 +15,5 @@ npm install
 npm test
 npm start        # http://localhost:8080/health
 ```
+
+Le script de test utilise `node --test`, le harnais natif de Node.js, pour éviter une dépendance de test supplémentaire.
