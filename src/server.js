@@ -1,4 +1,6 @@
 const express = require('express');
+const fs = require('node:fs');
+const path = require('node:path');
 require('./db');
 const { addItem, createList, getList, removeItem, setItemChecked } = require('./lists');
 
@@ -9,6 +11,14 @@ app.use(express.json());
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
+});
+
+app.get('/styles.css', (_req, res) => {
+  res.type('css').send(fs.readFileSync(path.join(__dirname, '..', 'public', 'styles.css')));
+});
+
+app.get('/app.js', (_req, res) => {
+  res.type('js').send(fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js')));
 });
 
 // Crée une liste neuve et redirige vers sa page (SPEC §3, H2).
@@ -24,6 +34,14 @@ app.get('/api/lists/:code', (req, res) => {
     return;
   }
   res.json(list);
+});
+
+app.get('/l/:code', (req, res) => {
+  if (!getList(req.params.code)) {
+    res.status(404).send('Liste inconnue');
+    return;
+  }
+  res.type('html').send(fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html')));
 });
 
 app.post('/api/lists/:code/items', (req, res) => {

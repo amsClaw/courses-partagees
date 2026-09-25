@@ -67,6 +67,17 @@ test('GET /api/lists/:code renvoie 404 pour un code inconnu', async () => {
   assert.equal(typeof corps.error, 'string');
 });
 
+test('GET /l/:code sert la page mobile et 404 si la liste est inconnue', async () => {
+  const { code } = await creerListe();
+  const page = await fetch(`${baseUrl}/l/${code}`);
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /id="ajout"/);
+
+  const inconnue = await fetch(`${baseUrl}/l/zzzzzz`);
+  assert.equal(inconnue.status, 404);
+  assert.match(await inconnue.text(), /Liste inconnue/);
+});
+
 test('GET /health reste disponible', async () => {
   const reponse = await fetch(`${baseUrl}/health`);
   assert.equal(reponse.status, 200);
