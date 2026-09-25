@@ -72,3 +72,65 @@ test('GET /health reste disponible', async () => {
   assert.equal(reponse.status, 200);
   assert.deepEqual(await reponse.json(), { status: 'ok' });
 });
+
+test('ajoute des articles trimés et isole les listes', async () => {
+  const listeA = await creerListe();
+  const listeB = await creerListe();
+
+  const ajoutA = await fetch(`${baseUrl}/api/lists/${listeA.code}/items`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: '  pommes  ' }),
+  });
+  const ajoutB = await fetch(`${baseUrl}/api/lists/${listeB.code}/items`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'pain' }),
+  });
+
+  assert.equal(ajoutA.status, 201);
+  assert.equal(ajoutB.status, 201);
+  const articleA = await ajoutA.json();
+  const articleB = await ajoutB.json();
+  assert.equal(articleA.text, 'pommes');
+  assert.ok(articleA.id);
+  assert.notEqual(articleA.id, articleB.id);
+
+  const contenuA = await (await fetch(`${baseUrl}/api/lists/${listeA.code}`)).json();
+  const contenuB = await (await fetch(`${baseUrl}/api/lists/${listeB.code}`)).json();
+  assert.deepEqual(contenuA.items.map(({ text }) => text), ['pommes']);
+  assert.deepEqual(contenuB.items.map(({ text }) => text), ['pain']);
+});
+
+test('rejette un texte vide et protège la suppression entre listes', async () => {
+  const listeA = await creerListe();
+  const listeB = await creerListe();
+  const ajout = await fetch(`${baseUrl}/api/lists/${listeA.code}/items`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: '  ' }),
+  });
+  assert.equal(ajout.status, 400);
+
+  const article = await (await fetch(`${baseUrl}/api/lists/${listeA.code}/items`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'lait' }),
+  })).json();
+  const suppressionCroisee = await fetch(
+    `${baseUrl}/api/lists/${listeB.code}/items/${article.id}`,
+    { method: 'DELETE' },
+  );
+  assert.equal(suppressionCroisee.status, 404);
+  const contenuA = await (await fetch(`${baseUrl}/api/lists/${listeA.code}`)).json();
+  assert.deepEqual(contenuA.items.map(({ text }) => text), ['lait']);
+
+  const suppression = await fetch(`${baseUrl}/api/lists/${listeA.code}/items/${article.id}`, {
+    method: 'DELETE',
+  });
+  assert.equal(suppression.status, 204);
+  assert.deepEqual(
+    (await (await fetch(`${baseUrl}/api/lists/${listeA.code}`)).json()).items,
+    [],
+  );
+});
