@@ -117,6 +117,11 @@ et documenter la conformité à la SPEC.
 - `README.md` : comment lancer (`npm install`, `npm test`, `npm start`, variables `PORT` et
   `DB_PATH`), choix techniques (format du code liste, fréquence de polling) avec renvoi à
   `SPEC.md`.
+- `README.md` : un **guide d'utilisation** écrit pour l'utilisateur final (pas pour un
+  développeur) — comment créer une liste, la partager (le code/lien), ajouter/cocher/
+  supprimer un article, et ce que fait le rafraîchissement automatique entre appareils.
+  Écran par écran, pas une liste de routes API (règle d'usine, `docs/contrats/CARTE.md`,
+  « La dernière histoire d'un produit »).
 - Preuve écrite dans le README (ou script `test/holdout-manual.md`) du déroulé du Holdout 1
   de la SPEC : deux clients distincts, actions de A, délai d'observation, résultat constaté
   côté B.
