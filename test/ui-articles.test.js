@@ -194,10 +194,15 @@ function fetchInstrumente(url, options) {
 function ouvrirPage(code) {
   appels = [];
   const page = creerPage();
+  const intervalles = [];
   const sandbox = vm.createContext({
     document: page.document,
     fetch: fetchInstrumente,
     window: { location: { pathname: `/l/${code}` } },
+    setInterval: (fonction, delai) => {
+      intervalles.push({ fonction, delai });
+      return intervalles.length;
+    },
     console,
   });
   vm.runInContext(sourceApp, sandbox, { filename: 'public/app.js' });
@@ -206,6 +211,7 @@ function ouvrirPage(code) {
     lignes: () => page.liste.querySelectorAll('li'),
     getListes: () => appels.filter((appel) => appel.method === 'GET' && appel.url === `${baseUrl}/api/lists/${code}`),
     parMethode: (methode) => appels.filter((appel) => appel.method === methode),
+    intervalles,
   };
 }
 
@@ -289,6 +295,21 @@ test('le contrat HTML/CSS de l\'UI mobile : ancrages, cibles 44x44 px, texte coc
   const texteCoche = declarations('.article-coche .article-texte');
   assert.equal(propriete(texteCoche, 'text-decoration'), 'line-through');
   assert.ok(propriete(texteCoche, 'color'), 'le texte coché doit aussi être atténué');
+});
+
+test('le client programme un polling local de 3 secondes sans WebSocket ni URL externe', async () => {
+  assert.doesNotMatch(sourceApp, /new\s+WebSocket\s*\(/);
+  assert.doesNotMatch(sourceApp, /https?:\/\//);
+
+  const code = await creerListe();
+  const page = ouvrirPage(code);
+  await attendre(() => page.getListes().length === 1, 'la liste doit être chargée');
+  assert.deepEqual(page.intervalles.map(({ delai }) => delai), [3000]);
+
+  page.champ.value = 'en cours de frappe';
+  await page.intervalles[0].fonction();
+  assert.equal(page.champ.value, 'en cours de frappe');
+  assert.equal(page.form.querySelector('#article'), page.champ, 'le champ conserve son nœud DOM');
 });
 
 // ---------------------------------------------------------------------------
