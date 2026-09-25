@@ -15,4 +15,27 @@ input { min-width: 0; flex: 1; border: 1px solid #8993a1; border-radius: 6px; pa
 button { min-width: 44px; border: 0; border-radius: 6px; padding: 8px 16px; background: #1769aa; color: white; cursor: pointer; }
 .message { min-height: 24px; margin: 12px 0 4px; }
 .articles { list-style: none; margin: 0; padding: 0; }
-.articles li { overflow-wrap: anywhere; padding: 14px 12px; border-bottom: 1px solid #d7dce2; background: white; }
+.articles li { overflow-wrap: anywhere; border-bottom: 1px solid #d7dce2; background: white; }
+
+/* Ligne d'article : case à cocher + texte + bouton Supprimer (histoire 6). */
+.article { display: flex; align-items: center; gap: 8px; padding: 8px 12px; }
+.article-case {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  cursor: pointer;
+}
+.article-texte { overflow-wrap: anywhere; }
+.article-checkbox {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  accent-color: #1769aa;
+  cursor: pointer;
+}
+.article-supprimer { flex: 0 0 auto; min-width: 44px; min-height: 44px; background: #b3261e; }
+.article-coche .article-texte { text-decoration: line-through; color: #6b7480; }
