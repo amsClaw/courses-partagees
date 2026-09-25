@@ -94,6 +94,17 @@ async function charger() {
   articles.replaceChildren(...liste.items.map((item) => creerArticle(item)));
 }
 
+// Le serveur reste la source de vérité entre deux appareils (SPEC §5, H6).
+// Seul le conteneur des articles est remplacé : le champ de saisie n'est donc
+// jamais recréé et conserve naturellement sa valeur et son focus pendant la frappe.
+async function rafraichir() {
+  try {
+    await charger();
+  } catch {
+    // Une panne réseau transitoire ne doit pas effacer l'affichage courant.
+  }
+}
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const text = input.value.trim();
@@ -117,3 +128,5 @@ form.addEventListener('submit', async (event) => {
 charger().catch(() => {
   message.textContent = 'Impossible de charger la liste.';
 });
+
+setInterval(rafraichir, 3000);
