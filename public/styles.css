@@ -1,0 +1,18 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, sans-serif;
+  background: #f6f7f9;
+  color: #20252b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.liste { width: min(100% - 32px, 640px); margin: 0 auto; padding: 24px 0; }
+h1 { margin: 0 0 24px; font-size: 1.8rem; }
+.ajout label { display: block; margin-bottom: 8px; font-weight: 600; }
+.ajout-ligne { display: flex; gap: 8px; }
+input, button { min-height: 44px; font: inherit; }
+input { min-width: 0; flex: 1; border: 1px solid #8993a1; border-radius: 6px; padding: 8px 12px; }
+button { min-width: 44px; border: 0; border-radius: 6px; padding: 8px 16px; background: #1769aa; color: white; cursor: pointer; }
+.message { min-height: 24px; margin: 12px 0 4px; }
+.articles { list-style: none; margin: 0; padding: 0; }
+.articles li { overflow-wrap: anywhere; padding: 14px 12px; border-bottom: 1px solid #d7dce2; background: white; }
