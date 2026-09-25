@@ -16,6 +16,12 @@ const insertItem = db.prepare(
   'INSERT INTO items (list_code, text, created_at) VALUES (?, ?, ?)',
 );
 const deleteItem = db.prepare('DELETE FROM items WHERE list_code = ? AND id = ?');
+const updateItemChecked = db.prepare(
+  'UPDATE items SET checked = ? WHERE list_code = ? AND id = ?',
+);
+const selectItem = db.prepare(
+  'SELECT id, text, checked FROM items WHERE list_code = ? AND id = ?',
+);
 
 /** Génère un code de liste de 6 caractères (SPEC H1), sans garantie d'unicité. */
 function generateListCode() {
@@ -68,6 +74,18 @@ function removeItem(code, id) {
   return deleteItem.run(code, id).changes > 0;
 }
 
+/**
+ * Coche (`true`) ou décoche (`false`) un article de la liste indiquée et renvoie
+ * l'article à jour ; `null` si l'article n'appartient pas à cette liste.
+ * Idempotent : réappliquer la même valeur renvoie le même article (SPEC H4).
+ */
+function setItemChecked(code, id, checked) {
+  updateItemChecked.run(checked ? 1 : 0, code, id);
+  const item = selectItem.get(code, id);
+  if (!item) return null;
+  return { id: item.id, text: item.text, checked: Boolean(item.checked) };
+}
+
 module.exports = {
   ALPHABET,
   CODE_LENGTH,
@@ -76,4 +94,5 @@ module.exports = {
   getList,
   addItem,
   removeItem,
+  setItemChecked,
 };

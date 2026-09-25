@@ -1,6 +1,6 @@
 const express = require('express');
 require('./db');
-const { addItem, createList, getList, removeItem } = require('./lists');
+const { addItem, createList, getList, removeItem, setItemChecked } = require('./lists');
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -46,6 +46,24 @@ app.delete('/api/lists/:code/items/:id', (req, res) => {
     return;
   }
   res.status(204).end();
+});
+
+app.patch('/api/lists/:code/items/:id', (req, res) => {
+  if (typeof req.body?.checked !== 'boolean') {
+    res.status(400).json({ error: 'checked doit être un booléen' });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) {
+    res.status(404).json({ error: 'article inconnu' });
+    return;
+  }
+  const item = setItemChecked(req.params.code, id, req.body.checked);
+  if (!item) {
+    res.status(404).json({ error: 'article inconnu' });
+    return;
+  }
+  res.json(item);
 });
 
 if (require.main === module) {
