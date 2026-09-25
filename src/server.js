@@ -1,9 +1,11 @@
 const express = require('express');
 require('./db');
-const { createList, getList } = require('./lists');
+const { addItem, createList, getList, removeItem } = require('./lists');
 
 const app = express();
 const port = process.env.PORT || 8080;
+
+app.use(express.json());
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
@@ -22,6 +24,28 @@ app.get('/api/lists/:code', (req, res) => {
     return;
   }
   res.json(list);
+});
+
+app.post('/api/lists/:code/items', (req, res) => {
+  if (typeof req.body?.text !== 'string' || req.body.text.trim() === '') {
+    res.status(400).json({ error: 'le texte est obligatoire' });
+    return;
+  }
+  const item = addItem(req.params.code, req.body.text);
+  if (!item) {
+    res.status(404).json({ error: 'liste inconnue' });
+    return;
+  }
+  res.status(201).json(item);
+});
+
+app.delete('/api/lists/:code/items/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1 || !removeItem(req.params.code, id)) {
+    res.status(404).json({ error: 'article inconnu' });
+    return;
+  }
+  res.status(204).end();
 });
 
 if (require.main === module) {

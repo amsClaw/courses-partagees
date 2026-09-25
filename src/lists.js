@@ -12,6 +12,10 @@ const selectList = db.prepare('SELECT code, created_at FROM lists WHERE code = ?
 const selectItems = db.prepare(
   'SELECT id, text, checked FROM items WHERE list_code = ? ORDER BY created_at, id',
 );
+const insertItem = db.prepare(
+  'INSERT INTO items (list_code, text, created_at) VALUES (?, ?, ?)',
+);
+const deleteItem = db.prepare('DELETE FROM items WHERE list_code = ? AND id = ?');
 
 /** Génère un code de liste de 6 caractères (SPEC H1), sans garantie d'unicité. */
 function generateListCode() {
@@ -52,4 +56,24 @@ function getList(code) {
   };
 }
 
-module.exports = { ALPHABET, CODE_LENGTH, generateListCode, createList, getList };
+/** Ajoute un article à une liste connue et renvoie l'article créé. */
+function addItem(code, text) {
+  if (!selectList.get(code)) return null;
+  const result = insertItem.run(code, text.trim(), Date.now());
+  return { id: Number(result.lastInsertRowid), text: text.trim(), checked: false };
+}
+
+/** Supprime un article uniquement s'il appartient à la liste indiquée. */
+function removeItem(code, id) {
+  return deleteItem.run(code, id).changes > 0;
+}
+
+module.exports = {
+  ALPHABET,
+  CODE_LENGTH,
+  generateListCode,
+  createList,
+  getList,
+  addItem,
+  removeItem,
+};
