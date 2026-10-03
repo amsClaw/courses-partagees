@@ -7,6 +7,7 @@ const { addItem, createList, getList, removeItem, setItemChecked } = require('./
 const app = express();
 const port = process.env.PORT || 8080;
 
+app.disable('x-powered-by');
 app.use(express.json());
 
 app.get('/health', (_req, res) => {
@@ -82,6 +83,24 @@ app.patch('/api/lists/:code/items/:id', (req, res) => {
     return;
   }
   res.json(item);
+});
+
+app.use((err, _req, res, next) => {
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+  res.type('json');
+  if (err.type === 'entity.parse.failed') {
+    res.status(400).json({ error: 'requête invalide' });
+    return;
+  }
+  if (err.type === 'entity.too.large') {
+    res.status(413).json({ error: 'requête trop volumineuse' });
+    return;
+  }
+  console.error(err);
+  res.status(500).json({ error: 'erreur interne' });
 });
 
 if (require.main === module) {
