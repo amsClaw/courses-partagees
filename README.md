@@ -5,6 +5,8 @@ tout le monde voit la même liste.
 
 ## Lancer le projet
 
+Node 22 requis (avec nvm, lancez `nvm use` depuis la racine du projet).
+
 Depuis la racine du projet :
 
 ```bash
