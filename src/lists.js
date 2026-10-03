@@ -6,6 +6,7 @@ const db = require('./db');
 const ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 const CODE_LENGTH = 6;
 const MAX_TENTATIVES = 10;
+const TEXTE_MAX = 200;
 
 const insertList = db.prepare('INSERT INTO lists (code, created_at) VALUES (?, ?)');
 const selectList = db.prepare('SELECT code, created_at FROM lists WHERE code = ?');
@@ -89,6 +90,7 @@ function setItemChecked(code, id, checked) {
 module.exports = {
   ALPHABET,
   CODE_LENGTH,
+  TEXTE_MAX,
   generateListCode,
   createList,
   getList,

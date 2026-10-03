@@ -2,7 +2,7 @@ const express = require('express');
 const fs = require('node:fs');
 const path = require('node:path');
 require('./db');
-const { addItem, createList, getList, removeItem, setItemChecked } = require('./lists');
+const { TEXTE_MAX, addItem, createList, getList, removeItem, setItemChecked } = require('./lists');
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -49,7 +49,12 @@ app.post('/api/lists/:code/items', (req, res) => {
     res.status(400).json({ error: 'le texte est obligatoire' });
     return;
   }
-  const item = addItem(req.params.code, req.body.text);
+  const text = req.body.text.trim();
+  if (text.length > TEXTE_MAX) {
+    res.status(400).json({ error: `le texte dépasse ${TEXTE_MAX} caractères` });
+    return;
+  }
+  const item = addItem(req.params.code, text);
   if (!item) {
     res.status(404).json({ error: 'liste inconnue' });
     return;
