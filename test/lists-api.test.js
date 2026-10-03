@@ -113,6 +113,57 @@ test('ajoute des articles trimés et isole les listes', async () => {
   assert.deepEqual(contenuB.items.map(({ text }) => text), ['pain']);
 });
 
+test('accepte et persiste un article de 200 caractères', async () => {
+  const { code } = await creerListe();
+  const text = 'a'.repeat(200);
+  const reponse = await fetch(`${baseUrl}/api/lists/${code}/items`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+  assert.equal(reponse.status, 201);
+  const article = await reponse.json();
+  assert.equal(article.text, text);
+  const contenu = await fetch(`${baseUrl}/api/lists/${code}`);
+  assert.equal(contenu.status, 200);
+  assert.deepEqual(await contenu.json(), { code, items: [article] });
+});
+
+test('mesure la limite de 200 caractères après le trim', async () => {
+  const { code } = await creerListe();
+  const text = 'a'.repeat(200);
+  const reponse = await fetch(`${baseUrl}/api/lists/${code}/items`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: `  ${text}  ` }),
+  });
+  assert.equal(reponse.status, 201);
+  const article = await reponse.json();
+  assert.equal(article.text, text);
+  const contenu = await fetch(`${baseUrl}/api/lists/${code}`);
+  assert.equal(contenu.status, 200);
+  assert.deepEqual(await contenu.json(), { code, items: [article] });
+});
+
+test('rejette 201 caractères avec une erreur JSON sans insertion en base', async () => {
+  const { code } = await creerListe();
+  const reponse = await fetch(`${baseUrl}/api/lists/${code}/items`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'a'.repeat(201) }),
+  });
+  assert.equal(reponse.status, 400);
+  assert.match(reponse.headers.get('content-type'), /application\/json/);
+  assert.deepEqual(await reponse.json(), { error: 'le texte dépasse 200 caractères' });
+  const contenu = await fetch(`${baseUrl}/api/lists/${code}`);
+  assert.equal(contenu.status, 200);
+  assert.deepEqual(await contenu.json(), { code, items: [] });
+  assert.equal(
+    db.prepare('SELECT COUNT(*) AS total FROM items WHERE list_code = ?').get(code).total,
+    0,
+  );
+});
+
 test('rejette un texte vide et protège la suppression entre listes', async () => {
   const listeA = await creerListe();
   const listeB = await creerListe();
