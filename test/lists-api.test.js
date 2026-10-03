@@ -84,6 +84,61 @@ test('GET /health reste disponible', async () => {
   assert.deepEqual(await reponse.json(), { status: 'ok' });
 });
 
+async function verifierErreurJson(reponse, statut, message) {
+  assert.equal(reponse.status, statut);
+  assert.match(reponse.headers.get('content-type'), /^application\/json\b/);
+  assert.equal(reponse.headers.get('x-powered-by'), null);
+  const corps = await reponse.text();
+  assert.doesNotMatch(corps, /SyntaxError|\/node_modules\/|\/Users\/|\bat\s+.*:\d+:\d+/);
+  assert.deepEqual(JSON.parse(corps), { error: message });
+}
+
+test('un JSON tronqué renvoie une erreur 400 courte en JSON', async () => {
+  const { code } = await creerListe();
+  const reponse = await fetch(`${baseUrl}/api/lists/${code}/items`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{"text": ',
+  });
+  await verifierErreurJson(reponse, 400, 'requête invalide');
+  assert.deepEqual((await (await fetch(`${baseUrl}/api/lists/${code}`)).json()).items, []);
+});
+
+test('un corps de plus de 100 ko renvoie une erreur 413 courte en JSON', async () => {
+  const { code } = await creerListe();
+  const reponse = await fetch(`${baseUrl}/api/lists/${code}/items`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'a'.repeat(200 * 1024) }),
+  });
+  await verifierErreurJson(reponse, 413, 'requête trop volumineuse');
+  assert.deepEqual((await (await fetch(`${baseUrl}/api/lists/${code}`)).json()).items, []);
+});
+
+test('les réponses de redirection, santé, API et page ne révèlent pas Express', async () => {
+  const { code } = await creerListe();
+  for (const route of ['/', '/health', `/api/lists/${code}`, `/l/${code}`, '/api/lists/zzzzzz']) {
+    const reponse = await fetch(`${baseUrl}${route}`, { redirect: 'manual' });
+    assert.equal(reponse.headers.get('x-powered-by'), null, route);
+    await reponse.text();
+  }
+});
+
+test('une erreur inattendue renvoie 500 sans détail et reste journalisée côté serveur', async (t) => {
+  const erreur = new Error('lecture impossible dans /Users/serveur/node_modules/fichier.js');
+  const lecture = fs.readFileSync;
+  t.mock.method(fs, 'readFileSync', (fichier, ...options) => {
+    if (fichier === path.join(__dirname, '..', 'public', 'app.js')) throw erreur;
+    return lecture(fichier, ...options);
+  });
+  const journal = t.mock.method(console, 'error', () => {});
+
+  const reponse = await fetch(`${baseUrl}/app.js`);
+  await verifierErreurJson(reponse, 500, 'erreur interne');
+  assert.equal(journal.mock.callCount(), 1);
+  assert.deepEqual(journal.mock.calls[0].arguments, [erreur]);
+});
+
 test('ajoute des articles trimés et isole les listes', async () => {
   const listeA = await creerListe();
   const listeB = await creerListe();
