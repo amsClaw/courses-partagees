@@ -148,16 +148,19 @@ function creerPage() {
   form.setAttribute('id', 'ajout');
   const champ = new Element('input');
   champ.setAttribute('id', 'article');
+  const bouton = new Element('button');
+  bouton.type = 'submit';
+  bouton.textContent = 'Ajouter';
   const message = new Element('p');
   message.setAttribute('id', 'message');
-  form.append(champ);
+  form.append(champ, bouton);
   racine.append(liste, form, message);
   const document = {
     createElement: (tag) => new Element(tag),
     querySelector: (selecteur) => racine.querySelector(selecteur),
     querySelectorAll: (selecteur) => racine.querySelectorAll(selecteur),
   };
-  return { racine, document, liste, form, champ, message };
+  return { racine, document, liste, form, champ, bouton, message };
 }
 
 // ---------------------------------------------------------------------------
@@ -191,13 +194,13 @@ function fetchInstrumente(url, options) {
 }
 
 /** Monte la page et exécute le vrai public/app.js avec le vrai serveur en face. */
-function ouvrirPage(code) {
+function ouvrirPage(code, fetchClient = fetchInstrumente) {
   appels = [];
   const page = creerPage();
   const intervalles = [];
   const sandbox = vm.createContext({
     document: page.document,
-    fetch: fetchInstrumente,
+    fetch: fetchClient,
     window: { location: { pathname: `/l/${code}` } },
     setInterval: (fonction, delai) => {
       intervalles.push({ fonction, delai });
@@ -454,6 +457,77 @@ test('ajouter un article en un tap : POST, la ligne apparaît, le champ est vid�
   assert.deepEqual(ajouts[0].body, { text: 'pommes' });
   assert.equal(page.getListes().length, avant, 'aucun rechargement de la liste');
 });
+
+test('PREUVE 2 : deux soumissions rapprochées de lait ne créent qu’un article en base', async () => {
+  const code = await creerListe();
+  let liberer;
+  const attenteReponse = new Promise((resolve) => { liberer = resolve; });
+  const page = ouvrirPage(code, async (url, options) => {
+    const reponse = await fetchInstrumente(url, options);
+    if (options?.method === 'POST') await attenteReponse;
+    return reponse;
+  });
+  await page.intervalles[0].fonction();
+  page.champ.value = 'lait';
+  const premier = page.form.dispatch('submit');
+  const second = page.form.dispatch('submit');
+  try {
+    assert.equal(page.bouton.disabled, true, 'Ajouter est désactivé pendant l’envoi');
+    assert.equal(page.champ.value, 'lait', 'le texte reste présent tant que la réponse tarde');
+    assert.equal(page.parMethode('POST').length, 1, 'le drapeau ignore la seconde soumission');
+  } finally {
+    liberer();
+    await Promise.all([premier, second]);
+  }
+
+  assert.deepEqual(
+    db.prepare('SELECT text FROM items WHERE list_code = ?').all(code),
+    [{ text: 'lait' }],
+  );
+  assert.equal(page.lignes().length, 1);
+  assert.equal(page.champ.value, '');
+  assert.equal(page.bouton.disabled, false);
+
+  // Après la réponse, un ajout volontaire du même texte doit rester possible.
+  page.champ.value = 'lait';
+  await page.form.dispatch('submit');
+  assert.equal(page.parMethode('POST').length, 2);
+  assert.equal(db.prepare('SELECT COUNT(*) AS total FROM items WHERE list_code = ?').get(code).total, 2);
+  assert.equal(page.bouton.disabled, false);
+});
+
+for (const echec of ['refus HTTP', 'panne réseau']) {
+  test(`un ajout en échec (${echec}) conserve la saisie et permet de réessayer`, async () => {
+    const code = await creerListe();
+    let premierPost = true;
+    const page = ouvrirPage(code, (url, options) => {
+      if (options?.method === 'POST' && premierPost) {
+        premierPost = false;
+        if (echec === 'panne réseau') return Promise.reject(new Error('réseau indisponible'));
+      }
+      return fetchInstrumente(url, options);
+    });
+    await page.intervalles[0].fonction();
+    const saisie = echec === 'refus HTTP' ? `  ${'x'.repeat(201)}  ` : '  lait  ';
+    page.champ.value = saisie;
+    const envoi = page.form.dispatch('submit');
+    assert.equal(page.bouton.disabled, true);
+    await envoi;
+
+    assert.equal(page.bouton.disabled, false);
+    assert.equal(page.champ.value, saisie, 'la saisie exacte doit être conservée');
+    assert.equal(page.message.textContent, 'Ajout impossible.');
+    assert.equal(page.lignes().length, 0);
+    assert.equal(db.prepare('SELECT COUNT(*) AS total FROM items WHERE list_code = ?').get(code).total, 0);
+
+    page.champ.value = 'lait';
+    await page.form.dispatch('submit');
+    assert.equal(page.message.textContent, 'Article ajouté.');
+    assert.equal(page.champ.value, '');
+    assert.equal(page.bouton.disabled, false);
+    assert.deepEqual(db.prepare('SELECT text FROM items WHERE list_code = ?').all(code), [{ text: 'lait' }]);
+  });
+}
 
 test('cycle ajouter → cocher → supprimer : trois taps, un seul chargement de liste', async () => {
   const code = await creerListe();

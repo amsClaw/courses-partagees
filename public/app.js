@@ -1,8 +1,10 @@
 const code = window.location.pathname.split('/').filter(Boolean).pop();
 const articles = document.querySelector('#articles');
 const form = document.querySelector('#ajout');
+const boutonAjouter = form.querySelector('button[type="submit"]');
 const input = document.querySelector('#article');
 const message = document.querySelector('#message');
+let envoiEnCours = false;
 
 const urlListe = `/api/lists/${encodeURIComponent(code)}`;
 
@@ -107,8 +109,11 @@ async function rafraichir() {
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (envoiEnCours) return;
   const text = input.value.trim();
   if (!text) return;
+  envoiEnCours = true;
+  boutonAjouter.disabled = true;
   try {
     const reponse = await fetch(`${urlListe}/items`, {
       method: 'POST',
@@ -122,6 +127,9 @@ form.addEventListener('submit', async (event) => {
     message.textContent = 'Article ajouté.';
   } catch {
     message.textContent = 'Ajout impossible.';
+  } finally {
+    envoiEnCours = false;
+    boutonAjouter.disabled = false;
   }
 });
 
