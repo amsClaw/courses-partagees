@@ -6,6 +6,20 @@ const message = document.querySelector('#message');
 
 const urlListe = `/api/lists/${encodeURIComponent(code)}`;
 
+// Alertes réseau : elles seules sont effacées au retour de la connexion ; un message
+// d'action plus récent (« Article ajouté. »…) les a déjà remplacées et reste affiché.
+const MESSAGE_CHARGEMENT = 'Impossible de charger la liste.';
+const MESSAGE_CONNEXION = 'Connexion perdue — la liste n\'est peut-être pas à jour.';
+// Deux polls ratés d'affilée (≈ 6 s) : un échec isolé ne fait pas clignoter de message.
+const SEUIL_ECHECS = 2;
+let echecsConsecutifs = 0;
+
+function effacerAlerteReseau() {
+  if (message.textContent === MESSAGE_CHARGEMENT || message.textContent === MESSAGE_CONNEXION) {
+    message.textContent = '';
+  }
+}
+
 /** Reflète l'état coché dans le DOM, sans recharger la liste (histoire 6). */
 function appliquerEtat(ligne, coche, checked) {
   coche.checked = checked;
@@ -101,8 +115,14 @@ async function rafraichir() {
   try {
     await charger();
   } catch {
-    // Une panne réseau transitoire ne doit pas effacer l'affichage courant.
+    // Une panne réseau ne doit pas effacer l'affichage courant, mais l'utilisateur
+    // doit savoir que la liste affichée n'est peut-être plus à jour.
+    echecsConsecutifs += 1;
+    if (echecsConsecutifs >= SEUIL_ECHECS) message.textContent = MESSAGE_CONNEXION;
+    return;
   }
+  echecsConsecutifs = 0;
+  effacerAlerteReseau();
 }
 
 form.addEventListener('submit', async (event) => {
@@ -126,7 +146,7 @@ form.addEventListener('submit', async (event) => {
 });
 
 charger().catch(() => {
-  message.textContent = 'Impossible de charger la liste.';
+  message.textContent = MESSAGE_CHARGEMENT;
 });
 
 setInterval(rafraichir, 3000);
