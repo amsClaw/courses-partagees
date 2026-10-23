@@ -191,13 +191,16 @@ function fetchInstrumente(url, options) {
 }
 
 /** Monte la page et exécute le vrai public/app.js avec le vrai serveur en face. */
-function ouvrirPage(code) {
+function ouvrirPage(code, { horsLigne = false } = {}) {
   appels = [];
   const page = creerPage();
   const intervalles = [];
+  const reseau = { coupe: horsLigne }; // coupe = true : tout fetch échoue comme hors ligne
   const sandbox = vm.createContext({
     document: page.document,
-    fetch: fetchInstrumente,
+    fetch: (url, options) => (reseau.coupe
+      ? Promise.reject(new TypeError('Failed to fetch'))
+      : fetchInstrumente(url, options)),
     window: { location: { pathname: `/l/${code}` } },
     setInterval: (fonction, delai) => {
       intervalles.push({ fonction, delai });
@@ -212,6 +215,7 @@ function ouvrirPage(code) {
     getListes: () => appels.filter((appel) => appel.method === 'GET' && appel.url === `${baseUrl}/api/lists/${code}`),
     parMethode: (methode) => appels.filter((appel) => appel.method === methode),
     intervalles,
+    reseau,
   };
 }
 
@@ -497,3 +501,77 @@ test('cycle ajouter → cocher → supprimer : trois taps, un seul chargement de
     'trois actions = trois appels API',
   );
 });
+
+// ---------------------------------------------------------------------------
+// Perte de réseau pendant le polling (audit robustesse du 23/10/2026).
+// ---------------------------------------------------------------------------
+
+const MESSAGE_CONNEXION = 'Connexion perdue — la liste n\'est peut-être pas à jour.';
+
+test('PREUVE 4 : deux polls hors ligne préviennent que la liste n\'est peut-être pas à jour', async () => {
+  const code = await creerListe();
+  await ajouterViaApi(code, 'pain');
+  const page = ouvrirPage(code);
+  await attendre(() => page.lignes().length === 1, 'la liste doit être chargée');
+  const poll = page.intervalles[0].fonction;
+
+  page.reseau.coupe = true;
+  await poll();
+  assert.equal(page.message.textContent, '', 'un échec isolé n\'affiche rien');
+  await poll();
+  assert.equal(page.message.textContent, MESSAGE_CONNEXION);
+  assert.match(page.message.textContent, /connexion/i);
+  assert.equal(page.lignes().length, 1, 'la dernière liste connue reste affichée');
+
+  page.reseau.coupe = false;
+  await poll();
+  assert.equal(page.message.textContent, '', 'le message disparaît au retour du réseau');
+});
+
+test('un échec isolé suivi d\'un succès ne fait jamais apparaître de message', async () => {
+  const code = await creerListe();
+  const page = ouvrirPage(code);
+  await attendre(() => page.getListes().length === 1, 'la liste doit être chargée');
+  const poll = page.intervalles[0].fonction;
+
+  for (let i = 0; i < 3; i += 1) {
+    page.reseau.coupe = true;
+    await poll();
+    assert.equal(page.message.textContent, '');
+    page.reseau.coupe = false;
+    await poll();
+    assert.equal(page.message.textContent, '');
+  }
+});
+
+test('PREUVE 5 : le message d\'échec du premier chargement disparaît dès que la liste revient', async () => {
+  const code = await creerListe();
+  await ajouterViaApi(code, 'lait');
+  const page = ouvrirPage(code, { horsLigne: true });
+  await attendre(() => page.message.textContent === 'Impossible de charger la liste.', 'l\'échec initial doit s\'afficher');
+
+  page.reseau.coupe = false;
+  await page.intervalles[0].fonction();
+  assert.equal(page.lignes().length, 1, 'la liste est revenue');
+  assert.equal(page.message.textContent, '', 'le message d\'échec ne reste pas affiché');
+});
+
+test('le retour du réseau n\'efface pas un message d\'action récent', async () => {
+  const code = await creerListe();
+  const page = ouvrirPage(code);
+  await attendre(() => page.getListes().length === 1, 'la liste doit être chargée');
+  const poll = page.intervalles[0].fonction;
+
+  page.reseau.coupe = true;
+  await poll();
+  await poll();
+  assert.equal(page.message.textContent, MESSAGE_CONNEXION);
+
+  page.reseau.coupe = false;
+  page.champ.value = 'pommes';
+  await page.form.dispatch('submit');
+  assert.equal(page.message.textContent, 'Article ajouté.');
+  await poll();
+  assert.equal(page.message.textContent, 'Article ajouté.', 'le message d\'action reste affiché');
+});
+
