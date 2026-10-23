@@ -19,6 +19,7 @@ db.exec(`
     checked INTEGER DEFAULT 0,
     created_at INTEGER
   );
+  CREATE INDEX IF NOT EXISTS idx_items_list ON items(list_code, created_at, id);
 `);
 
 module.exports = db;
